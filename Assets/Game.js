@@ -1,10 +1,11 @@
 #pragma strict
 
 var scaleStep:float = 1.02;
-var centerPosition:Vector3;
 var startDeepObject:GameObject;
 var keepLevels:int = 3;
 var currentLevel:int = 0;
+var centerObject:GameObject;
+var splitDistance:float = 1;
 
 public class Support
 {
@@ -95,7 +96,8 @@ function Update()
     	
     	if(castObject.gameObject.activeSelf == true){
 	    	// add children
-	    	if(castObject.gameObject.transform.lossyScale.x > 1){
+	    	if((castObject.gameObject.transform.lossyScale.x > 1) && 
+	    		(Vector3.Distance(castObject.gameObject.transform.position, centerObject.transform.position) < splitDistance)){
 	    		splitDeepObject(castObject);
 	    	}
     	}
@@ -142,7 +144,7 @@ function zoomGame(scaleStep:float)
 
 function unSplitRootObjects()
 {
-	Debug.Log('current level '+currentLevel+' - unsplit Level '+(currentLevel-keepLevels+1));
+	Debug.Log('unsplit Level '+(currentLevel-keepLevels+1)+' - current level '+currentLevel);
 	
 	for(var i = 0; i < DeepObject.allObjects.length; ++i)
     {
