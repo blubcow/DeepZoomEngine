@@ -5,6 +5,7 @@ var centerPosition:Vector3;
 var startDeepObject:GameObject;
 var keepLevels:int = 3;
 var currentLevel:int = 0;
+var cam:Transform = null;
 
 public class Support
 {
@@ -95,7 +96,9 @@ function Update()
     	
     	if(castObject.gameObject.activeSelf == true){
 	    	// add children
-	    	if(castObject.gameObject.transform.lossyScale.x > 1){
+	    	var dist = Vector3.Distance(castObject.gameObject.transform.position,cam.position);
+	    	//Debug.Log(dist);
+	    	if(castObject.gameObject.transform.lossyScale.x > 1 && dist<1){
 	    		splitDeepObject(castObject);
 	    	}
     	}
