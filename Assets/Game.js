@@ -4,13 +4,20 @@ var scaleStep:float = 0.02;
 var centerPosition:Vector3;
 var startDeepObject:GameObject;
 
-private var deepObjects = new Array();
+var deepObjects = new Array();
 
 public class DeepObject
 {
-    public var deepObject:GameObject;
+    public var gameObject:GameObject;
     public var level:float;
     public var scaleRatio:float;
+    
+    public function DeepObject(gO:GameObject)
+    {
+    	gameObject = gO;
+    	level = gameObject.transform.localScale.x;
+    	scaleRatio = level;
+    }
 }
 
 function Start()
@@ -20,17 +27,48 @@ function Start()
 	
 	child.transform.parent = transform;
 	
+	deepObjects.push( new DeepObject(child) );
 	
-	
-	
-	
+}
+
+function Update()
+{
+	if (Input.GetKey(KeyCode.UpArrow))
+    {
+           zoomGame(scaleStep);
+    }
+    if (Input.GetKey(KeyCode.DownArrow))
+    {
+            zoomGame(-scaleStep);
+    }
+    
+    // check deep object levels
+    for (var i = 0; i < deepObjects.length; ++i)
+    {
+    	var castObject:DeepObject = deepObjects[i];
+    	if(castObject.level > 1){
+    		splitDeepObject(deepObjects[i]);
+    	}
+    }
+    
+}
+
+function splitDeepObject(obj:DeepObject)
+{
 	/**
 	* CONVERT ALL CHILDREN INTO NEW PREFABS (DEEP GAME OBJECTS) TODO
 	*/
-	var numChildren = child.transform.childCount;
+	var numChildren = obj.gameObject.transform.childCount;
  
     for (var i = 0; i < numChildren; ++i)
     {
+    	var childTransform = obj.gameObject.transform.GetChild(i).transform;
+    	var child = Instantiate(startDeepObject, Vector3(childTransform.position.x, childTransform.position.y, childTransform.position.z), Quaternion.identity);
+        
+        child.transform.localScale = childTransform.localScale;
+        child.transform.parent = transform;
+        
+    	deepObjects.push( new DeepObject(child) );
        	/*
             // Debug.Log(transform.GetChild(i));
             var childTransform = transform.GetChild(i).transform;
@@ -58,19 +96,22 @@ function Start()
         //gameObject.transform
 	}
 	
+	
+	removeFromArray(deepObjects, obj);
+	//Destroy(obj.gameObject);
 }
 
-function Update()
+function removeFromArray(arr:Array, val)
 {
-	if (Input.GetKey(KeyCode.UpArrow))
-    {
-           zoomGame(scaleStep);
-        }
-        if (Input.GetKey(KeyCode.DownArrow))
-        {
-            zoomGame(-scaleStep);
-        }
+	var index = -1;
+	for (var i = 0; i < arr.length; ++i)
+    	if(arr[i] == val) index = i;
+    
+    if(index != -1){
+    	arr.splice(index,1);
+    }
 }
+
 function zoomGame(scaleStep:float)
 {
 	this.transform.localScale += Vector3(scaleStep, scaleStep, scaleStep);
@@ -78,6 +119,7 @@ function zoomGame(scaleStep:float)
 	// update level in deepObjects
 	for (var i = 0; i < deepObjects.length; ++i)
     {
-    	// TODO
+    	var castObject:DeepObject = deepObjects[i];
+    	castObject.level += scaleStep;
     }
 }
