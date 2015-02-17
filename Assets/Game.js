@@ -3,6 +3,8 @@
 var scaleStep:float = 1.02;
 var centerPosition:Vector3;
 var startDeepObject:GameObject;
+var keepLevels:int = 3;
+var currentLevel:int = 0;
 
 public class Support
 {
@@ -23,16 +25,24 @@ public class DeepObject
     public var gameObject:GameObject;
     public var children = new Array();
     public static var allObjects = new Array();
+    public var level:int;
     
-    public function DeepObject(gO:GameObject)
+    public function DeepObject(gO:GameObject, l:int)
     {
     	gameObject = gO;
+    	level = l;
     	allObjects.push( this );
     }
     
     public function destroy()
     {
     	destroyChildren();
+    	Support.removeFromArray(allObjects, this);
+		gameObject.Destroy(gameObject);
+    }
+    
+    public function destroySelf()
+    {
     	Support.removeFromArray(allObjects, this);
 		gameObject.Destroy(gameObject);
     }
@@ -61,7 +71,7 @@ function Start()
 	
 	child.transform.parent = transform;
 	
-	DeepObject.allObjects.push( new DeepObject(child) );
+	DeepObject.allObjects.push( new DeepObject(child, 0) );
 	
 }
 
@@ -77,22 +87,70 @@ function Update()
     }
     
     // check deep object levels
+    var destroyObjects = new Array();
+    var prevCurrentLevel = currentLevel;
     for(var i = 0; i < DeepObject.allObjects.length; ++i)
     {
     	var castObject:DeepObject = DeepObject.allObjects[i] as DeepObject;
+    	
     	if(castObject.gameObject.activeSelf == true){
 	    	// add children
 	    	if(castObject.gameObject.transform.lossyScale.x > 1){
 	    		splitDeepObject(castObject);
 	    	}
     	}
+    	
     	// remove children
-    	if(castObject.gameObject.transform.lossyScale.x < 1){
+    	// OPPOSITE OF SPLITTING CHILDREN
+    	if(castObject.gameObject.transform.lossyScale.x < 1)
+    	{
     		castObject.destroyChildren();
     		castObject.gameObject.SetActive(true);
+    		
+    		// set current level
+    		// step up one level
+			if(castObject.level < currentLevel){
+				currentLevel = castObject.level;
+			}
+    	}
+    	
+    	// destroy roots
+    	if(castObject.level <= (currentLevel-keepLevels)){
+    		Debug.Log('destroy level '+castObject.level+' - currentLevel '+currentLevel);
+    		destroyObjects.push(castObject);
     	}
     }
     
+    // destroy roots
+    for(var j = 0; j < destroyObjects.length; ++j)
+    {
+    	var castDestroyObj:DeepObject = destroyObjects[j] as DeepObject;
+    	castDestroyObj.destroySelf();
+    }
+    
+    // step up one level
+    if(currentLevel < prevCurrentLevel)
+    {
+    	unSplitRootObjects();
+    }
+}
+
+function zoomGame(scaleStep:float)
+{
+	this.transform.localScale *= scaleStep;
+}
+
+function unSplitRootObjects()
+{
+	Debug.Log('current level '+currentLevel+' - unsplit Level '+(currentLevel-keepLevels+1));
+	
+	for(var i = 0; i < DeepObject.allObjects.length; ++i)
+    {
+    	var castObj:DeepObject = DeepObject.allObjects[i] as DeepObject;
+    	if(castObj.level == (currentLevel-keepLevels+1)){
+    		// TODO REVERSE LEVEL
+    	}	
+    }
 }
 
 function splitDeepObject(obj:DeepObject)
@@ -114,8 +172,13 @@ function splitDeepObject(obj:DeepObject)
         childPrefab.transform.parent = transform;
         
         // add to array and parent obj
-        var childObj = new DeepObject(childPrefab);
+        var childObj = new DeepObject(childPrefab, obj.level+1);
     	obj.addChild( childObj );
+	}
+	
+	// set current level
+	if(obj.level >= currentLevel){
+		currentLevel = obj.level + 1;
 	}
 	
 	// remove deepObject from index
@@ -124,9 +187,4 @@ function splitDeepObject(obj:DeepObject)
 
 	// hide object
 	obj.gameObject.SetActive(false);
-}
-
-function zoomGame(scaleStep:float)
-{
-	this.transform.localScale *= scaleStep;
 }
