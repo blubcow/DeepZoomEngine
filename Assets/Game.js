@@ -29,11 +29,13 @@ public class DeepObject
     public static var allObjects = new Array();
     public static var prevObjects = new Array();
     public var level:int;
+    public var game:Game;
     
-    public function DeepObject(gO:GameObject, l:int)
+    public function DeepObject(gO:GameObject, l:int, g:Game)
     {
     	gameObject = gO;
     	level = l;
+    	game = g;
     	allObjects.push( this );
     }
     
@@ -49,6 +51,20 @@ public class DeepObject
     	allObjects.push(this);
     	Support.removeFromArray(prevObjects, this);
     	gameObject.SetActive(true);
+    	checkActive();
+    }
+    
+    public function checkActive()
+    {
+    	if( (Vector3.Distance(gameObject.transform.position, game.centerObject.transform.position) < game.splitDistance) &&
+    		(children.length > 0) ){
+	    	gameObject.SetActive(false);
+	    }
+	    for (var i = 0; i < children.length; ++i)
+    	{
+    		var castChildObj:DeepObject = children[i] as DeepObject;
+    		castChildObj.checkActive();
+    	}
     }
     
     public function addChild(dO:DeepObject)
@@ -89,7 +105,7 @@ function Start()
 	
 	child.transform.parent = transform;
 	
-	DeepObject.allObjects.push( new DeepObject(child, currentLevel) );
+	DeepObject.allObjects.push( new DeepObject(child, currentLevel, this) );
 	
 	unSplitRootObjects();
 }
@@ -236,46 +252,49 @@ function movePrevLevelToAll(level:int)
 function unSplitLevel(level:int)
 {
 	var unsplitLevel = level;
-		var rootLevel = unsplitLevel+1;
+	var rootLevel = unsplitLevel+1;
         
-        // get root object
-        var rootObj:DeepObject;
-        for(var j = 0; j < DeepObject.allObjects.length; ++j)
-    	{
-    		var castRootObj:DeepObject = DeepObject.allObjects[j] as DeepObject;
-    		if(castRootObj.level == rootLevel){
-    			rootObj = castRootObj;
-    		}
+    // get root object
+    var rootObj:DeepObject;
+    for(var j = 0; j < DeepObject.allObjects.length; ++j)
+    {
+    	var castRootObj:DeepObject = DeepObject.allObjects[j] as DeepObject;
+    	if(castRootObj.level == rootLevel){
+    		rootObj = castRootObj;
     	}
+    }
     		
-    	// make parent object
-    	var parentPrefab = Instantiate(startDeepObject, Vector3(0,0,0), Quaternion.identity);
-    	var childTransform = parentPrefab.transform.GetChild(0).transform;
-        parentPrefab.transform.localScale = (Vector3(1,1,1) / childTransform.localScale.x) * rootObj.gameObject.transform.lossyScale.x;
-        parentPrefab.transform.parent = transform;
+    // make parent object
+    var parentPrefab = Instantiate(startDeepObject, Vector3(0,0,0), Quaternion.identity);
+    var childTransform = parentPrefab.transform.GetChild(0).transform;
+    parentPrefab.transform.localScale = (Vector3(1,1,1) / childTransform.localScale.x) * rootObj.gameObject.transform.lossyScale.x;
+    parentPrefab.transform.parent = transform;
         
-        // add to array and parent obj
-        var parentObj = new DeepObject(parentPrefab, unsplitLevel);
-        parentObj.addChild(rootObj);
-    	
-        // create other children too
-        var numChildren = parentPrefab.transform.childCount;
-	    for (var k=1; k<numChildren; ++k)
-	    {
-	    	childTransform = parentPrefab.transform.GetChild(k).transform;
-	    	
-	    	// TODO
-	    	// get prefab from component variable
-	    	// child.GetComponent.<LodObject>().setController(gameObject);
-	    	var childPrefab = Instantiate(startDeepObject, Vector3(childTransform.position.x, childTransform.position.y, childTransform.position.z), Quaternion.identity);
-	        
-	        childPrefab.transform.localScale = childTransform.localScale * parentPrefab.transform.lossyScale.x;
-	        childPrefab.transform.parent = transform;
-	        
-	        // add to array and parent obj
-	        var childObj = new DeepObject(childPrefab, rootLevel);
-	    	parentObj.addChild(childObj);
-		}
+    // add to array and parent obj
+    var parentObj = new DeepObject(parentPrefab, unsplitLevel, this);
+    parentObj.addChild(rootObj);
+    
+    // create other children too
+    var numChildren = parentPrefab.transform.childCount;
+	for (var k=1; k<numChildren; ++k)
+	{
+	   	childTransform = parentPrefab.transform.GetChild(k).transform;
+	   	
+	   	// TODO
+	   	// get prefab from component variable
+	   	// child.GetComponent.<LodObject>().setController(gameObject);
+	  	var childPrefab = Instantiate(startDeepObject, Vector3(childTransform.position.x, childTransform.position.y, childTransform.position.z), Quaternion.identity);
+	       
+	    childPrefab.transform.localScale = childTransform.localScale * parentPrefab.transform.lossyScale.x;
+	    childPrefab.transform.parent = transform;
+	       
+	    // add to array and parent obj
+	    var childObj = new DeepObject(childPrefab, rootLevel, this);
+	   	parentObj.addChild(childObj);
+	}
+	
+	// check active
+	parentObj.checkActive();
 }
 
 function splitDeepObject(obj:DeepObject)
@@ -298,7 +317,7 @@ function splitDeepObject(obj:DeepObject)
 	        childPrefab.transform.parent = transform;
 	        
 	        // add to array and parent obj
-	        var childObj = new DeepObject(childPrefab, obj.level+1);
+	        var childObj = new DeepObject(childPrefab, obj.level+1, this);
 	    	obj.addChild( childObj );
 		}
 	}
