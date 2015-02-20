@@ -30,8 +30,9 @@ public class DeepObject
     public static var prevObjects = new Array();
     public var level:int;
     public var game:Game;
+    public var inPrev = false;
     
-    public function DeepObject(gO:GameObject, l:int, g:Game)
+    public function DeepObject(g:Game, gO:GameObject, l:int)
     {
     	gameObject = gO;
     	level = l;
@@ -39,32 +40,45 @@ public class DeepObject
     	allObjects.push( this );
     }
     
-    public function hide()
+    /*
+    public function toPrev()
     {
-    	prevObjects.push(this);
-    	Support.removeFromArray(allObjects, this);
+    	if(!inPrev){
+    		Debug.Log('push '+level+' to prev');
+    		inPrev = true;
+    		prevObjects.push(this);
+    		Support.removeFromArray(allObjects, this);
+		}
 		gameObject.SetActive(false);
     }
     
-    public function show()
+    public function toCurrent()
     {
-    	allObjects.push(this);
-    	Support.removeFromArray(prevObjects, this);
+    	if(inPrev){
+    		inPrev = false;
+    		Debug.Log('push '+level+' to current');
+    		allObjects.push(this);
+    		Support.removeFromArray(prevObjects, this);
+    	}
     	gameObject.SetActive(true);
     	checkActive();
     }
+    */
     
     public function checkActive()
     {
-    	if( (Vector3.Distance(gameObject.transform.position, game.centerObject.transform.position) < game.splitDistance) &&
-    		(children.length > 0) ){
-	    	gameObject.SetActive(false);
-	    }
-	    for (var i = 0; i < children.length; ++i)
+    	/*if( (Vector3.Distance(gameObject.transform.position, game.centerObject.transform.position) < game.splitDistance) &&
+    		(children.length > 0))
     	{
-    		var castChildObj:DeepObject = children[i] as DeepObject;
-    		castChildObj.checkActive();
-    	}
+	    	gameObject.SetActive(false);
+	    	
+	    	//
+		    for (var i = 0; i < children.length; ++i)
+	    	{
+	    		var castChildObj:DeepObject = children[i] as DeepObject;
+	    		castChildObj.checkActive();
+	    	}
+    	}*/
     }
     
     public function addChild(dO:DeepObject)
@@ -72,11 +86,23 @@ public class DeepObject
     	children.push(dO);
     }
     
+    public function destroyAsRoot()
+    {
+    	for (var i = 0; i < children.length; ++i)
+    	{
+    		var castChildObj:DeepObject = children[i] as DeepObject;
+    		castChildObj.destroySelf();
+    	}
+    	destroySelf();
+    }
+    
     public function destroySelf()
     {
-    	Support.removeFromArray(allObjects, this);
-    	Support.removeFromArray(prevObjects, this);
+    	Support.removeFromArray(DeepObject.allObjects, this);
+    	Support.removeFromArray(DeepObject.prevObjects, this);
     	gameObject.Destroy(gameObject);
+    	children = new Array();
+    	game = null;
     }
     
     public function destroyChildren()
@@ -92,21 +118,15 @@ public class DeepObject
     private function destroy()
     {
     	destroyChildren();
-    	//Support.removeFromArray(allObjects, this);
-		//gameObject.Destroy(gameObject);
 		destroySelf();
     }
 }
 
 function Start()
 {
-    
     var child = Instantiate(startDeepObject, Vector3(0, 0, 0), Quaternion.identity);
-	
 	child.transform.parent = transform;
-	
-	DeepObject.allObjects.push( new DeepObject(child, currentLevel, this) );
-	
+	new DeepObject(this, child, currentLevel);
 	unSplitRootObjects();
 }
 
@@ -121,84 +141,89 @@ function Update()
     	zoomGame(1/scaleStep);
     }
     
-    // check deep object levels
+    // active objects (allObjects)
     var hideObjects = new Array();
-    var removeObjects = new Array();
     var prevCurrentLevel = currentLevel;
     for(var i = 0; i < DeepObject.allObjects.length; ++i)
     {
     	var castObject:DeepObject = DeepObject.allObjects[i] as DeepObject;
     	
-    	// ZOOM IN
-    	// split objects
-    	if(castObject.gameObject && (castObject.gameObject.activeSelf == true)){
-	    	// add children
-	    	if((castObject.gameObject.transform.lossyScale.x > 1) && 
-	    		(Vector3.Distance(castObject.gameObject.transform.position, centerObject.transform.position) < splitDistance)){
+    	
+    		// ZOOM IN
+    		if(	(castObject.gameObject.activeSelf == true) &&
+    			(castObject.gameObject.transform.lossyScale.x > 1) && 
+	    		(Vector3.Distance(castObject.gameObject.transform.position, centerObject.transform.position) < splitDistance))
+	    	{
 	    		splitDeepObject(castObject);
+	    		
+	    		// set current level
+				if(castObject.level >= currentLevel){
+					currentLevel = castObject.level + 1;
+					Debug.Log('IN current: '+currentLevel);
+				}
 	    	}
-    	}
+	    	
     	
-    	// ZOOM IN
-    	// hide roots
-    	if(castObject.level <= (currentLevel-keepLevels)){
-    		hideObjects.push(castObject);
-    	}
-    	// remove saved roots
-    	if(castObject.level <= (currentLevel-keepHiddenLevels)){
-    		removeObjects.push(castObject);
-    	}
-    	
-    	// ZOOM OUT
-    	// remove children
-    	// OPPOSITE OF SPLITTING CHILDREN
-    	if(castObject.gameObject && (castObject.gameObject.activeSelf == false)){
-	    	if(castObject.gameObject.transform.lossyScale.x < 1)
+	    	
+    		// ZOOM OUT
+    		if(	(castObject.gameObject.activeSelf == false) && 
+    			(castObject.gameObject.transform.lossyScale.x < 1))
 	    	{
 	    		castObject.destroyChildren();
 	    		castObject.gameObject.SetActive(true);
 	    		
 	    		// set current level
-	    		// step up one level
 				if(castObject.level < currentLevel){
 					currentLevel = castObject.level;
-					Debug.Log('OUT - currentLevel '+currentLevel);
+					Debug.Log('OUT current: '+currentLevel);
 				}
 	    	}
+	    	
+	    	
+	    
+    		// ZOOM IN - hide outside
+    	if(castObject.level < (prevCurrentLevel-keepLevels)){
+    		hideObjects.push(castObject);
     	}
-    }
-    for(var l=0; l<DeepObject.prevObjects.length; l++)
-    {
-    	castObject = DeepObject.prevObjects[l] as DeepObject;
     	
-    	// remove saved roots
-    	if(castObject.level <= (currentLevel-keepHiddenLevels)){
-    		removeObjects.push(castObject);
-    	}
+    	
     }
     
-    // ZOOM IN
-    // hide roots
+    // ZOOM IN - hide outside
     for(var j = 0; j < hideObjects.length; ++j)
     {
     	var castHideObj:DeepObject = hideObjects[j] as DeepObject;
-    	castHideObj.hide();
-    }
-    // remove saved roots
-    for(var k = 0; k < removeObjects.length; ++k)
-    {
-    	var castRmObj:DeepObject = removeObjects[k] as DeepObject;
-    	castRmObj.destroySelf();
+    	//castHideObj.destroySelf();
+    	castHideObj.destroyAsRoot();
     }
     
     // ZOOM OUT
     // step up one level
     if(currentLevel < prevCurrentLevel)
     {
-    	Debug.Log('OUT - before Unsplit '+currentLevel);
     	unSplitRootObjects();
-    	Debug.Log('OUT - after Unsplit '+currentLevel);
     }
+    
+    /*
+    // ZOOM IN
+    // hide roots
+    for(var j = 0; j < hideObjects.length; ++j)
+    {
+    	var castHideObj:DeepObject = hideObjects[j] as DeepObject;
+    	castHideObj.toPrev();
+    }
+    
+    // hidden objects (prevObjects)
+    for(var l=(DeepObject.prevObjects.length-1); l>=0; l--)
+    {
+    	// ZOOM IN
+    	// remove saved roots
+    	var castPrevObject:DeepObject = DeepObject.prevObjects[l] as DeepObject;
+    	if(castPrevObject.level <= (currentLevel-keepHiddenLevels)){
+    		castPrevObject.destroySelf();
+    	}
+    }
+    */
 }
 
 function zoomGame(scaleStep:float)
@@ -209,44 +234,41 @@ function zoomGame(scaleStep:float)
 function unSplitRootObjects()
 {
 	var unsplitLevel = (currentLevel-keepLevels);
-	for(var i=(currentLevel-1); i>=unsplitLevel; i--)
+	for(var level=currentLevel; level>=unsplitLevel; level--)
 	{
-		// try moving level from prev array
-		// else create new ones
-		if(!levelExistsInAll(i))
-		{
-			if(movePrevLevelToAll(i)){
-				Debug.Log('MOVE FROM TMP TO ALL, level '+i+' of '+currentLevel);
-			}else{
-				Debug.Log('CREATE NEW PARENT, level '+i+' of '+currentLevel);
-				unSplitLevel(i);
-			}
+		var levelFound = false;
+		
+		// first try find level in visible objects
+		for(var i=0; i<DeepObject.allObjects.length; i++){
+	    	var castObj:DeepObject = DeepObject.allObjects[i] as DeepObject;
+	    	
+	    	if(castObj.level == level){
+	    		levelFound = true;
+	    		Debug.Log('CHECKED VISIBLE LEVEL: '+level+', current: '+currentLevel);
+	    		break;
+	    	}	
+	    }
+		
+		/*
+		// then try find level in hidden objects
+		if(!levelFound){
+			for(var j=(DeepObject.prevObjects.length-1); j>=0; j--){
+		    	var castPrevObj:DeepObject = DeepObject.prevObjects[j] as DeepObject;
+		    	if(castPrevObj.level == level){
+		    		levelFound = true;
+		    		Debug.Log('SHOW HIDDEN LEVEL: '+level+', current: '+currentLevel);
+		    		castPrevObj.toCurrent();
+		    	}	
+		    }
+	    }
+	    */
+			
+		// else create root
+		if(!levelFound){
+			Debug.Log('CREATE NEW ROOT LEVEL: '+level+', current: '+currentLevel);
+			unSplitLevel(level);
 		}
 	}
-}
-
-function levelExistsInAll(level:int)
-{
-	for(var i=0; i<DeepObject.allObjects.length; i++){
-    	var castObj:DeepObject = DeepObject.allObjects[i] as DeepObject;
-    	if(castObj.level == level){
-    		return true;
-    	}	
-    }
-    return false;
-}
-
-function movePrevLevelToAll(level:int)
-{
-	var foundLevel = false;
-	for(var i=(DeepObject.prevObjects.length-1); i>=0; i--){
-    	var castObj:DeepObject = DeepObject.prevObjects[i] as DeepObject;
-    	if(castObj.level == level){
-    		foundLevel = true;
-    		castObj.show();
-    	}	
-    }
-    return foundLevel;
 }
 
 function unSplitLevel(level:int)
@@ -271,7 +293,7 @@ function unSplitLevel(level:int)
     parentPrefab.transform.parent = transform;
         
     // add to array and parent obj
-    var parentObj = new DeepObject(parentPrefab, unsplitLevel, this);
+    var parentObj = new DeepObject(this, parentPrefab, unsplitLevel);
     parentObj.addChild(rootObj);
     
     // create other children too
@@ -283,13 +305,13 @@ function unSplitLevel(level:int)
 	   	// TODO
 	   	// get prefab from component variable
 	   	// child.GetComponent.<LodObject>().setController(gameObject);
-	  	var childPrefab = Instantiate(startDeepObject, Vector3(childTransform.position.x, childTransform.position.y, childTransform.position.z), Quaternion.identity);
+	  	var childPrefab = Instantiate(startDeepObject, childTransform.position, Quaternion.identity);
 	       
 	    childPrefab.transform.localScale = childTransform.localScale * parentPrefab.transform.lossyScale.x;
 	    childPrefab.transform.parent = transform;
 	       
 	    // add to array and parent obj
-	    var childObj = new DeepObject(childPrefab, rootLevel, this);
+	    var childObj = new DeepObject(this, childPrefab, rootLevel);
 	   	parentObj.addChild(childObj);
 	}
 	
@@ -311,26 +333,17 @@ function splitDeepObject(obj:DeepObject)
 	    	// TODO
 	    	// get prefab from component variable
 	    	// child.GetComponent.<LodObject>().setController(gameObject);
-	    	var childPrefab = Instantiate(startDeepObject, Vector3(childTransform.position.x, childTransform.position.y, childTransform.position.z), Quaternion.identity);
+	    	var childPrefab = Instantiate(startDeepObject, childTransform.position, Quaternion.identity);
 	        
 	        childPrefab.transform.localScale = childTransform.localScale;
 	        childPrefab.transform.parent = transform;
 	        
 	        // add to array and parent obj
-	        var childObj = new DeepObject(childPrefab, obj.level+1, this);
+	        var childObj = new DeepObject(this, childPrefab, obj.level+1);
 	    	obj.addChild( childObj );
 		}
 	}
 	
-	// set current level
-	if(obj.level >= currentLevel){
-		currentLevel = obj.level + 1;
-		// Debug.Log('IN - currentLevel '+currentLevel);
-	}
-	
-	// remove deepObject from index
-	// Support.removeFromArray(DeepObject.allObjects, obj);
-
 	// hide object
 	obj.gameObject.SetActive(false);
 }
