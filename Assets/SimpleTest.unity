@@ -183,8 +183,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   scaleStep: 1.01999998
   startDeepObject: {fileID: 100010, guid: 8b3a9fdcf270adb49b89339c7a719f43, type: 2}
-  keepLevels: 3
-  keepHiddenLevels: 6
+  keepLevels: 2
+  keepHiddenLevels: 4
   currentLevel: 100
   centerObject: {fileID: 535108999}
   splitDistance: 1

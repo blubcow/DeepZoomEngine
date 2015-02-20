@@ -40,11 +40,9 @@ public class DeepObject
     	allObjects.push( this );
     }
     
-    /*
     public function toPrev()
     {
     	if(!inPrev){
-    		Debug.Log('push '+level+' to prev');
     		inPrev = true;
     		prevObjects.push(this);
     		Support.removeFromArray(allObjects, this);
@@ -56,18 +54,16 @@ public class DeepObject
     {
     	if(inPrev){
     		inPrev = false;
-    		Debug.Log('push '+level+' to current');
     		allObjects.push(this);
     		Support.removeFromArray(prevObjects, this);
     	}
     	gameObject.SetActive(true);
     	checkActive();
     }
-    */
     
     public function checkActive()
     {
-    	/*if( (Vector3.Distance(gameObject.transform.position, game.centerObject.transform.position) < game.splitDistance) &&
+    	if( (Vector3.Distance(gameObject.transform.position, game.centerObject.transform.position) < game.splitDistance) &&
     		(children.length > 0))
     	{
 	    	gameObject.SetActive(false);
@@ -78,7 +74,7 @@ public class DeepObject
 	    		var castChildObj:DeepObject = children[i] as DeepObject;
 	    		castChildObj.checkActive();
 	    	}
-    	}*/
+    	}
     }
     
     public function addChild(dO:DeepObject)
@@ -88,10 +84,14 @@ public class DeepObject
     
     public function destroyAsRoot()
     {
-    	for (var i = 0; i < children.length; ++i)
+    	for(var i=(children.length-1); i>=0; i--)
     	{
     		var castChildObj:DeepObject = children[i] as DeepObject;
-    		castChildObj.destroySelf();
+    		if( (Vector3.Distance(castChildObj.gameObject.transform.position, game.centerObject.transform.position) > game.splitDistance) )
+    		{
+    			castChildObj.destroySelf();
+    			Support.removeFromArray(children, castChildObj);
+    		}
     	}
     	destroySelf();
     }
@@ -101,7 +101,6 @@ public class DeepObject
     	Support.removeFromArray(DeepObject.allObjects, this);
     	Support.removeFromArray(DeepObject.prevObjects, this);
     	gameObject.Destroy(gameObject);
-    	children = new Array();
     	game = null;
     }
     
@@ -159,7 +158,7 @@ function Update()
 	    		// set current level
 				if(castObject.level >= currentLevel){
 					currentLevel = castObject.level + 1;
-					Debug.Log('IN current: '+currentLevel);
+					//Debug.Log('IN current: '+currentLevel);
 				}
 	    	}
 	    	
@@ -175,55 +174,41 @@ function Update()
 	    		// set current level
 				if(castObject.level < currentLevel){
 					currentLevel = castObject.level;
-					Debug.Log('OUT current: '+currentLevel);
+					//Debug.Log('OUT current: '+currentLevel);
 				}
 	    	}
 	    	
 	    	
 	    
     		// ZOOM IN - hide outside
-    	if(castObject.level < (prevCurrentLevel-keepLevels)){
-    		hideObjects.push(castObject);
-    	}
+    		if(castObject.level <= (prevCurrentLevel-keepLevels)){
+    			hideObjects.push(castObject);
+    		}
     	
     	
+    }
+    
+    // ZOOM OUT - show outside
+    if(currentLevel < prevCurrentLevel)
+    {
+    	unSplitRootObjects();
     }
     
     // ZOOM IN - hide outside
     for(var j = 0; j < hideObjects.length; ++j)
     {
     	var castHideObj:DeepObject = hideObjects[j] as DeepObject;
-    	//castHideObj.destroySelf();
-    	castHideObj.destroyAsRoot();
-    }
-    
-    // ZOOM OUT
-    // step up one level
-    if(currentLevel < prevCurrentLevel)
-    {
-    	unSplitRootObjects();
-    }
-    
-    /*
-    // ZOOM IN
-    // hide roots
-    for(var j = 0; j < hideObjects.length; ++j)
-    {
-    	var castHideObj:DeepObject = hideObjects[j] as DeepObject;
     	castHideObj.toPrev();
     }
     
-    // hidden objects (prevObjects)
+    // ZOOM IN - destroy outside
     for(var l=(DeepObject.prevObjects.length-1); l>=0; l--)
     {
-    	// ZOOM IN
-    	// remove saved roots
     	var castPrevObject:DeepObject = DeepObject.prevObjects[l] as DeepObject;
-    	if(castPrevObject.level <= (currentLevel-keepHiddenLevels)){
-    		castPrevObject.destroySelf();
+    	if(castPrevObject.level < (currentLevel-keepHiddenLevels)){
+    		castPrevObject.destroyAsRoot();
     	}
     }
-    */
 }
 
 function zoomGame(scaleStep:float)
@@ -241,7 +226,6 @@ function unSplitRootObjects()
 		// first try find level in visible objects
 		for(var i=0; i<DeepObject.allObjects.length; i++){
 	    	var castObj:DeepObject = DeepObject.allObjects[i] as DeepObject;
-	    	
 	    	if(castObj.level == level){
 	    		levelFound = true;
 	    		Debug.Log('CHECKED VISIBLE LEVEL: '+level+', current: '+currentLevel);
@@ -249,7 +233,6 @@ function unSplitRootObjects()
 	    	}	
 	    }
 		
-		/*
 		// then try find level in hidden objects
 		if(!levelFound){
 			for(var j=(DeepObject.prevObjects.length-1); j>=0; j--){
@@ -261,7 +244,6 @@ function unSplitRootObjects()
 		    	}	
 		    }
 	    }
-	    */
 			
 		// else create root
 		if(!levelFound){
