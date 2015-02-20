@@ -8,6 +8,9 @@ var currentLevel:int = 0;
 var centerObject:GameObject;
 var splitDistance:float = 1;
 
+private var scaleMultiplier:int = 1000000000;
+private var target:GameObject;
+
 public class Support
 {
 	public static function removeFromArray(arr:Array, val)
@@ -123,8 +126,10 @@ public class DeepObject
 
 function Start()
 {
+	target = new GameObject();
+	target.transform.localScale *= scaleMultiplier;
     var child = Instantiate(startDeepObject, Vector3(0, 0, 0), Quaternion.identity);
-	child.transform.parent = transform;
+	child.transform.parent = target.transform;
 	new DeepObject(this, child, currentLevel);
 	unSplitRootObjects();
 }
@@ -211,10 +216,42 @@ function Update()
     }
 }
 
+
+
+
+
 function zoomGame(scaleStep:float)
 {
-	this.transform.localScale *= scaleStep;
+	target.transform.localScale *= scaleStep;
+	
+	//min
+	if(	(target.transform.localScale.x < 1) ||
+		(target.transform.localScale.x > (scaleMultiplier*scaleMultiplier)))
+	{
+		
+		var emptyObj:GameObject = new GameObject();
+		emptyObj.transform.localScale = Vector3(scaleMultiplier,scaleMultiplier,scaleMultiplier);
+		
+		for(var i=0; i<DeepObject.allObjects.length; i++){
+	    	var castObj:DeepObject = DeepObject.allObjects[i] as DeepObject;
+	    	castObj.gameObject.transform.parent = emptyObj.transform;
+	    }
+	    for(var j=0; j<DeepObject.prevObjects.length; j++){
+	    	var castPrevObj:DeepObject = DeepObject.prevObjects[j] as DeepObject;
+	    	castPrevObj.gameObject.transform.parent = emptyObj.transform;
+	    }
+	    
+	    target.Destroy(target);
+	    target = emptyObj;
+	}
+	
+	Debug.Log(currentLevel+' ############ '+target.transform.localScale.x+' ############### '+(target.transform.localScale.x/scaleMultiplier));
 }
+
+
+
+
+
 
 function unSplitRootObjects()
 {
@@ -228,7 +265,7 @@ function unSplitRootObjects()
 	    	var castObj:DeepObject = DeepObject.allObjects[i] as DeepObject;
 	    	if(castObj.level == level){
 	    		levelFound = true;
-	    		Debug.Log('CHECKED VISIBLE LEVEL: '+level+', current: '+currentLevel);
+	    		// Debug.Log('CHECKED VISIBLE LEVEL: '+level+', current: '+currentLevel);
 	    		break;
 	    	}	
 	    }
@@ -239,7 +276,7 @@ function unSplitRootObjects()
 		    	var castPrevObj:DeepObject = DeepObject.prevObjects[j] as DeepObject;
 		    	if(castPrevObj.level == level){
 		    		levelFound = true;
-		    		Debug.Log('SHOW HIDDEN LEVEL: '+level+', current: '+currentLevel);
+		    		// Debug.Log('SHOW HIDDEN LEVEL: '+level+', current: '+currentLevel);
 		    		castPrevObj.toCurrent();
 		    	}	
 		    }
@@ -247,7 +284,7 @@ function unSplitRootObjects()
 			
 		// else create root
 		if(!levelFound){
-			Debug.Log('CREATE NEW ROOT LEVEL: '+level+', current: '+currentLevel);
+			// Debug.Log('CREATE NEW ROOT LEVEL: '+level+', current: '+currentLevel);
 			unSplitLevel(level);
 		}
 	}
@@ -272,7 +309,7 @@ function unSplitLevel(level:int)
     var parentPrefab = Instantiate(startDeepObject, Vector3(0,0,0), Quaternion.identity);
     var childTransform = parentPrefab.transform.GetChild(0).transform;
     parentPrefab.transform.localScale = (Vector3(1,1,1) / childTransform.localScale.x) * rootObj.gameObject.transform.lossyScale.x;
-    parentPrefab.transform.parent = transform;
+    parentPrefab.transform.parent = target.transform;
         
     // add to array and parent obj
     var parentObj = new DeepObject(this, parentPrefab, unsplitLevel);
@@ -290,7 +327,7 @@ function unSplitLevel(level:int)
 	  	var childPrefab = Instantiate(startDeepObject, childTransform.position, Quaternion.identity);
 	       
 	    childPrefab.transform.localScale = childTransform.localScale * parentPrefab.transform.lossyScale.x;
-	    childPrefab.transform.parent = transform;
+	    childPrefab.transform.parent = target.transform;
 	       
 	    // add to array and parent obj
 	    var childObj = new DeepObject(this, childPrefab, rootLevel);
@@ -318,7 +355,7 @@ function splitDeepObject(obj:DeepObject)
 	    	var childPrefab = Instantiate(startDeepObject, childTransform.position, Quaternion.identity);
 	        
 	        childPrefab.transform.localScale = childTransform.localScale;
-	        childPrefab.transform.parent = transform;
+	        childPrefab.transform.parent = target.transform;
 	        
 	        // add to array and parent obj
 	        var childObj = new DeepObject(this, childPrefab, obj.level+1);
