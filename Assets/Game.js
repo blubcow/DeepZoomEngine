@@ -10,6 +10,7 @@ var splitDistance:float = 1;
 
 private var scaleMultiplier:int = 1000000000;
 private var target:GameObject;
+private var centerChild:GameObject;
 
 public class Support
 {
@@ -22,6 +23,24 @@ public class Support
 	    if(index != -1){
 	    	arr.splice(index,1);
 	    }
+	}
+	
+	public static function minKey(valArray:Array):int
+	{
+	     var min:float = -1;
+	     var key:int = -1;
+	     for (var i = 0; i < valArray.length; i++) {
+	     	var floatVal:float = parseFloat( valArray[i].ToString() );
+	     	if(min == -1){
+	     		min = floatVal;
+	     		key = i;
+	     	}
+	        if(floatVal < min) {
+	        	min = floatVal;
+	        	key = i;
+	        }
+	     }
+	     return key;
 	}
 }
 
@@ -78,6 +97,11 @@ public class DeepObject
 	    		castChildObj.checkActive();
 	    	}
     	}
+    }
+    
+    public function convertChild(i:int)
+    {
+    	return gameObject.GetComponent.<DeepAttributes>().childCubePrefab;
     }
     
     public function addChild(dO:DeepObject)
@@ -145,6 +169,14 @@ function Update()
     	zoomGame(1/scaleStep);
     }
     
+    // reset center
+    if(centerChild){
+	    if(centerObject.transform.position != centerChild.transform.position){
+	    	target.transform.Translate(centerChild.transform.position*-1, Space.World);
+	    }
+	    centerChild = null;
+    }
+    
     // active objects (allObjects)
     var hideObjects = new Array();
     var prevCurrentLevel = currentLevel;
@@ -152,45 +184,38 @@ function Update()
     {
     	var castObject:DeepObject = DeepObject.allObjects[i] as DeepObject;
     	
-    	
-    		// ZOOM IN
-    		if(	(castObject.gameObject.activeSelf == true) &&
-    			(castObject.gameObject.transform.lossyScale.x > 1) && 
-	    		(Vector3.Distance(castObject.gameObject.transform.position, centerObject.transform.position) < splitDistance))
-	    	{
-	    		splitDeepObject(castObject);
-	    		
-	    		// set current level
-				if(castObject.level >= currentLevel){
-					currentLevel = castObject.level + 1;
-					//Debug.Log('IN current: '+currentLevel);
-				}
-	    	}
+    	// ZOOM IN
+    	if(	(castObject.gameObject.activeSelf == true) &&
+    		(castObject.gameObject.transform.lossyScale.x > 1) && 
+	    	(Vector3.Distance(castObject.gameObject.transform.position, centerObject.transform.position) < splitDistance))
+	    {
+	    	splitDeepObject(castObject);
 	    	
-    	
-	    	
-    		// ZOOM OUT
-    		if(	(castObject.gameObject.activeSelf == false) && 
-    			(castObject.gameObject.transform.lossyScale.x < 1))
-	    	{
-	    		castObject.destroyChildren();
-	    		castObject.gameObject.SetActive(true);
-	    		
-	    		// set current level
-				if(castObject.level < currentLevel){
-					currentLevel = castObject.level;
-					//Debug.Log('OUT current: '+currentLevel);
-				}
-	    	}
-	    	
-	    	
+	    	// set current level
+			if(castObject.level >= currentLevel){
+				currentLevel = castObject.level + 1;
+				//Debug.Log('IN current: '+currentLevel);
+			}
+	    }
 	    
-    		// ZOOM IN - hide outside
-    		if(castObject.level <= (prevCurrentLevel-keepLevels)){
-    			hideObjects.push(castObject);
-    		}
-    	
-    	
+    	// ZOOM OUT
+    	if(	(castObject.gameObject.activeSelf == false) && 
+    		(castObject.gameObject.transform.lossyScale.x < 1))
+	    {
+	    	castObject.destroyChildren();
+	    	castObject.gameObject.SetActive(true);
+	    	
+	    	// set current level
+			if(castObject.level < currentLevel){
+				currentLevel = castObject.level;
+				//Debug.Log('OUT current: '+currentLevel);
+			}
+	    }
+	    
+    	// ZOOM IN - hide outside
+    	if(castObject.level <= (prevCurrentLevel-keepLevels)){
+    		hideObjects.push(castObject);
+    	}
     }
     
     // ZOOM OUT - show outside
@@ -216,10 +241,6 @@ function Update()
     }
 }
 
-
-
-
-
 function zoomGame(scaleStep:float)
 {
 	target.transform.localScale *= scaleStep;
@@ -244,14 +265,7 @@ function zoomGame(scaleStep:float)
 	    target.Destroy(target);
 	    target = emptyObj;
 	}
-	
-	Debug.Log(currentLevel+' ############ '+target.transform.localScale.x+' ############### '+(target.transform.localScale.x/scaleMultiplier));
 }
-
-
-
-
-
 
 function unSplitRootObjects()
 {
@@ -324,7 +338,8 @@ function unSplitLevel(level:int)
 	   	// TODO
 	   	// get prefab from component variable
 	   	// child.GetComponent.<LodObject>().setController(gameObject);
-	  	var childPrefab = Instantiate(startDeepObject, childTransform.position, Quaternion.identity);
+	   	var deepObject = parentObj.convertChild(k);
+	  	var childPrefab = Instantiate(deepObject, childTransform.position, Quaternion.identity);
 	       
 	    childPrefab.transform.localScale = childTransform.localScale * parentPrefab.transform.lossyScale.x;
 	    childPrefab.transform.parent = target.transform;
@@ -344,7 +359,8 @@ function splitDeepObject(obj:DeepObject)
 	* CONVERT ALL CHILDREN INTO NEW PREFABS (DEEP GAME OBJECTS)
 	*/
 	var numChildren = obj.gameObject.transform.childCount;
-	if(obj.children.length != numChildren){
+	var childDistances = new Array();
+	if(obj.children.length == 0){
 	    for (var i = 0; i < numChildren; ++i)
 	    {
 	    	var childTransform = obj.gameObject.transform.GetChild(i).transform;
@@ -352,7 +368,12 @@ function splitDeepObject(obj:DeepObject)
 	    	// TODO
 	    	// get prefab from component variable
 	    	// child.GetComponent.<LodObject>().setController(gameObject);
-	    	var childPrefab = Instantiate(startDeepObject, childTransform.position, Quaternion.identity);
+	    	
+	    	//Debug.Log( obj.gameObject.GetComponent.<DeepAttributes>().childCubePrefab );
+	    	
+	    	var deepObject = obj.convertChild(i);
+	    	
+	    	var childPrefab:GameObject = Instantiate(deepObject, childTransform.position, Quaternion.identity);
 	        
 	        childPrefab.transform.localScale = childTransform.localScale;
 	        childPrefab.transform.parent = target.transform;
@@ -360,7 +381,16 @@ function splitDeepObject(obj:DeepObject)
 	        // add to array and parent obj
 	        var childObj = new DeepObject(this, childPrefab, obj.level+1);
 	    	obj.addChild( childObj );
+	    	
+	    	// add to distances
+	    	childDistances[i] = Vector3.Distance(childPrefab.transform.position, Camera.main.transform.position);
 		}
+		
+		// set center near camera
+		var key:int = Support.minKey(childDistances);
+		Debug.Log(childDistances);
+		Debug.Log(key);
+		centerChild = obj.gameObject.transform.GetChild(key).gameObject;
 	}
 	
 	// hide object

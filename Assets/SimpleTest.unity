@@ -181,10 +181,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d4b165d758e38a546a5ccff613b83e96, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  scaleStep: 1.10000002
+  scaleStep: 1.01999998
   startDeepObject: {fileID: 100010, guid: 8b3a9fdcf270adb49b89339c7a719f43, type: 2}
-  keepLevels: 5
-  keepHiddenLevels: 10
+  keepLevels: 4
+  keepHiddenLevels: 8
   currentLevel: 100
   centerObject: {fileID: 535108999}
   splitDistance: 1
